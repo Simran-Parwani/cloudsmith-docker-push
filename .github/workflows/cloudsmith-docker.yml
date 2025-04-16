@@ -1,0 +1,24 @@
+name: Push Docker Image to Cloudsmith
+
+on:
+  workflow_dispatch:
+
+jobs:
+  push-to-cloudsmith:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Docker login to Cloudsmith
+        run: echo "${{ secrets.CLOUDSMITH_API_KEY }}" | docker login docker.cloudsmith.io -u simran-parwani --password-stdin
+
+      - name: Dummy Docker build (simulate build)
+        run: |
+          echo "FROM alpine" > Dockerfile
+          docker build -t docker.cloudsmith.io/simran-parwani-testorg/test-repo/gha-demo:latest .
+
+      - name: Push Docker image to Cloudsmith
+        run: |
+          docker push docker.cloudsmith.io/simran-parwani-testorg/test-repo/gha-demo:latest
