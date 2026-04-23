@@ -10,7 +10,7 @@ on:
 
 jobs:
   reproduce-cloudsmith-slowness:
-    runs-on: ubuntu-latest   # ✅ Changed from self-hosted (no runner configured)
+    runs-on: ubuntu-latest
 
     steps:
       # -------------------------------------------------------
@@ -21,7 +21,6 @@ jobs:
 
       # -------------------------------------------------------
       # Step 2: Create dummy artifacts to simulate ~50MB total
-      # (matches the real package size reported by Suhas)
       # -------------------------------------------------------
       - name: Create dummy artifacts
         run: |
@@ -34,7 +33,7 @@ jobs:
           dd if=/dev/urandom bs=1M count=10 of=/tmp/unit-test-dummy
           zip ./artifacts/unit-test-artifacts/unit-test-coverage.zip /tmp/unit-test-dummy
 
-          # ~20MB - coverity (heaviest, matches Suhas's logs ~2min upload)
+          # ~20MB - coverity (heaviest, matches Suhas's logs)
           dd if=/dev/urandom bs=1M count=20 of=/tmp/coverity-dummy
           zip ./artifacts/coverity-artifacts/coverity.zip /tmp/coverity-dummy
 
@@ -61,75 +60,82 @@ jobs:
           du -sh ./artifacts/**/*.zip ./artifacts/build_info.json
 
       # -------------------------------------------------------
-      # Step 4: Push to Cloudsmith (replicates Suhas's action)
-      # ⏱️ This is where we measure the slowness
+      # Step 4: Push unit-test-coverage.zip ⏱️
       # -------------------------------------------------------
-      - name: Push artifacts to Cloudsmith
-        uses: adi-innersource/wbms-containers/.github/actions/cloudsmith/push-to-cloudsmith@cloudsmith-v1
+      - name: Push unit-test-coverage.zip
+        uses: cloudsmith-io/action@master
         with:
-          cloudsmith-repo-name: dummy-org/dummy-repo        # 🔁 Replace with your Cloudsmith repo
-          component-name: dummy-component                   # 🔁 Replace with your component name
-          branch-name: develop/1.0.0
-          build-no: ${{ github.event.inputs.build-no }}
-          artifact-type: build
-          artifacts: |
-            ./artifacts/unit-test-artifacts/unit-test-coverage.zip
-            ./artifacts/coverity-artifacts/coverity.zip
-            ./artifacts/build_info.json
-            ./artifacts/integration-test-artifacts/integration-test-coverage.zip
-            ./artifacts/firmware-artifacts/firmware.zip
-          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}        # ✅ Add this secret in your repo settings
-          test-mode: false
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          command: push
+          format: raw
+          owner: simran-parwani-testorg
+          repo: dockers-testing
+          file: ./artifacts/unit-test-artifacts/unit-test-coverage.zip
+          name: unit-test-coverage.zip
+          version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
+          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},unit-test
 
       # -------------------------------------------------------
-      # Step 5: Cleanup dummy files from runner after the run
+      # Step 5: Push coverity.zip ⏱️
       # -------------------------------------------------------
-      - name: Cleanup
-        if: always()
-        run: |
-          rm -rf ./artifacts
-          rm -f /tmp/unit-test-dummy /tmp/coverity-dummy /tmp/integration-dummy /tmp/firmware-dummy
-          echo "🧹 Cleanup done" coverage
-          dd if=/dev/urandom bs=1M count=10 of=/tmp/integration-dummy
-          zip ./artifacts/integration-test-artifacts/integration-test-coverage.zip /tmp/integration-dummy
-
-          # ~10MB - firmware
-          dd if=/dev/urandom bs=1M count=10 of=/tmp/firmware-dummy
-          zip ./artifacts/firmware-artifacts/firmware.zip /tmp/firmware-dummy
-
-          # Small JSON file - build info
-          echo '{"component": "test-component", "build": ${{ github.event.inputs.build-no }}, "branch": "develop/1.0.0"}' \
-            > ./artifacts/build_info.json
-
-          echo "✅ Dummy artifacts created successfully"
-
-      # -------------------------------------------------------
-      # Step 3: Log artifact sizes (for reference)
-      # -------------------------------------------------------
-      - name: Show artifact sizes
-        run: |
-          echo "📦 Artifact sizes:"
-          du -sh ./artifacts/**/*.zip ./artifacts/build_info.json
-
-      # -------------------------------------------------------
-      # Step 4: Push to Cloudsmith (replicates Suhas's action)
-      # ⏱️ This is where we measure the slowness
-      # -------------------------------------------------------
-      - name: Push artifacts to Cloudsmith
-        uses: adi-innersource/wbms-containers/.github/actions/cloudsmith/push-to-cloudsmith@cloudsmith-v1
+      - name: Push coverity.zip
+        uses: cloudsmith-io/action@master
         with:
-          cloudsmith-repo-name: simran-parwani-testorg/dockers-testing        # 🔁 Replace with your Cloudsmith repo
-          component-name: dummy-component                   # 🔁 Replace with your component name
-          branch-name: develop/1.0.0
-          build-no: ${{ github.event.inputs.build-no }}
-          artifact-type: build
-          artifacts: |
-            ./artifacts/unit-test-artifacts/unit-test-coverage.zip
-            ./artifacts/coverity-artifacts/coverity.zip
-            ./artifacts/build_info.json
-            ./artifacts/integration-test-artifacts/integration-test-coverage.zip
-            ./artifacts/firmware-artifacts/firmware.zip
-          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}        # ✅ Add this secret in your repo settings
-          test-mode: false
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          command: push
+          format: raw
+          owner: simran-parwani-testorg
+          repo: dockers-testing
+          file: ./artifacts/coverity-artifacts/coverity.zip
+          name: coverity.zip
+          version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
+          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},coverity
 
+      # -------------------------------------------------------
+      # Step 6: Push build_info.json ⏱️
+      # -------------------------------------------------------
+      - name: Push build_info.json
+        uses: cloudsmith-io/action@master
+        with:
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          command: push
+          format: raw
+          owner: simran-parwani-testorg
+          repo: dockers-testing
+          file: ./artifacts/build_info.json
+          name: build_info.json
+          version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
+          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},build_info
+
+      # -------------------------------------------------------
+      # Step 7: Push integration-test-coverage.zip ⏱️
+      # -------------------------------------------------------
+      - name: Push integration-test-coverage.zip
+        uses: cloudsmith-io/action@master
+        with:
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          command: push
+          format: raw
+          owner: simran-parwani-testorg
+          repo: dockers-testing
+          file: ./artifacts/integration-test-artifacts/integration-test-coverage.zip
+          name: integration-test-coverage.zip
+          version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
+          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }}
+
+      # -------------------------------------------------------
+      # Step 8: Push firmware.zip ⏱️
+      # -------------------------------------------------------
+      - name: Push firmware.zip
+        uses: cloudsmith-io/action@master
+        with:
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
+          command: push
+          format: raw
+          owner: simran-parwani-testorg
+          repo: dockers-testing
+          file: ./artifacts/firmware-artifacts/firmware.zip
+          name: firmware.zip
+          version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
+          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }}
      
