@@ -74,6 +74,7 @@ jobs:
           name: unit-test-coverage.zip
           version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
           tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},unit-test
+          extra_params: "--no-wait-for-sync"
 
       # -------------------------------------------------------
       # Step 5: Push coverity.zip ⏱️
@@ -90,6 +91,7 @@ jobs:
           name: coverity.zip
           version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
           tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},coverity
+          extra_params: "--no-wait-for-sync"
 
       # -------------------------------------------------------
       # Step 6: Push build_info.json ⏱️
@@ -106,6 +108,7 @@ jobs:
           name: build_info.json
           version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
           tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},build_info
+          extra_params: "--no-wait-for-sync"
 
       # -------------------------------------------------------
       # Step 7: Push integration-test-coverage.zip ⏱️
@@ -122,6 +125,7 @@ jobs:
           name: integration-test-coverage.zip
           version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
           tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }}
+          extra_params: "--no-wait-for-sync"
 
       # -------------------------------------------------------
       # Step 8: Push firmware.zip ⏱️
@@ -138,4 +142,4 @@ jobs:
           name: firmware.zip
           version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
           tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }}
-     
+          extra_params: "--no-wait-for-sync"
