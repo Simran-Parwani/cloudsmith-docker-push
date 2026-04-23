@@ -20,35 +20,17 @@ jobs:
         uses: actions/checkout@v4
 
       # -------------------------------------------------------
-      # Step 2: Create dummy artifacts to simulate ~50MB total
+      # Step 2: Create a single ~50MB dummy raw artifact
       # -------------------------------------------------------
-      - name: Create dummy artifacts
+      - name: Create dummy artifact
         run: |
-          mkdir -p ./artifacts/unit-test-artifacts
-          mkdir -p ./artifacts/coverity-artifacts
-          mkdir -p ./artifacts/integration-test-artifacts
-          mkdir -p ./artifacts/firmware-artifacts
-
-          # ~10MB - unit test coverage
-          dd if=/dev/urandom bs=1M count=10 of=/tmp/unit-test-dummy
-          zip ./artifacts/unit-test-artifacts/unit-test-coverage.zip /tmp/unit-test-dummy
-
-          # ~20MB - coverity (heaviest, matches Suhas's logs)
-          dd if=/dev/urandom bs=1M count=20 of=/tmp/coverity-dummy
-          zip ./artifacts/coverity-artifacts/coverity.zip /tmp/coverity-dummy
-
-          # ~10MB - integration test coverage
-          dd if=/dev/urandom bs=1M count=10 of=/tmp/integration-dummy
-          zip ./artifacts/integration-test-artifacts/integration-test-coverage.zip /tmp/integration-dummy
-
-          # ~10MB - firmware
-          dd if=/dev/urandom bs=1M count=10 of=/tmp/firmware-dummy
-          zip ./artifacts/firmware-artifacts/firmware.zip /tmp/firmware-dummy
-
+          mkdir -p ./artifacts
+          # ~50MB raw binary file
+          dd if=/dev/urandom bs=1M count=50 of=/tmp/dummy-50mb
+          zip ./artifacts/dummy-50mb.zip /tmp/dummy-50mb
           # Small JSON file - build info
           echo '{"component": "test-component", "build": ${{ github.event.inputs.build-no }}, "branch": "develop/1.0.0"}' \
             > ./artifacts/build_info.json
-
           echo "✅ Dummy artifacts created successfully"
 
       # -------------------------------------------------------
@@ -57,12 +39,12 @@ jobs:
       - name: Show artifact sizes
         run: |
           echo "📦 Artifact sizes:"
-          du -sh ./artifacts/**/*.zip ./artifacts/build_info.json
+          du -sh ./artifacts/dummy-50mb.zip ./artifacts/build_info.json
 
       # -------------------------------------------------------
-      # Step 4: Push unit-test-coverage.zip ⏱️
+      # Step 4: Push dummy-50mb.zip ⏱️
       # -------------------------------------------------------
-      - name: Push unit-test-coverage.zip
+      - name: Push dummy-50mb.zip
         uses: cloudsmith-io/action@master
         with:
           api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
@@ -70,31 +52,14 @@ jobs:
           format: raw
           owner: simran-parwani-testorg
           repo: dockers-testing
-          file: ./artifacts/unit-test-artifacts/unit-test-coverage.zip
-          name: unit-test-coverage.zip
+          file: ./artifacts/dummy-50mb.zip
+          name: dummy-50mb.zip
           version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
-          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},unit-test
+          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},dummy-50mb
           no-wait-for-sync: "true"
 
       # -------------------------------------------------------
-      # Step 5: Push coverity.zip ⏱️
-      # -------------------------------------------------------
-      - name: Push coverity.zip
-        uses: cloudsmith-io/action@master
-        with:
-          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
-          command: push
-          format: raw
-          owner: simran-parwani-testorg
-          repo: dockers-testing
-          file: ./artifacts/coverity-artifacts/coverity.zip
-          name: coverity.zip
-          version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
-          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},coverity
-          no-wait-for-sync: "true"
-
-      # -------------------------------------------------------
-      # Step 6: Push build_info.json ⏱️
+      # Step 5: Push build_info.json ⏱️
       # -------------------------------------------------------
       - name: Push build_info.json
         uses: cloudsmith-io/action@master
@@ -108,38 +73,4 @@ jobs:
           name: build_info.json
           version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
           tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }},build_info
-          no-wait-for-sync: "true"
-
-      # -------------------------------------------------------
-      # Step 7: Push integration-test-coverage.zip ⏱️
-      # -------------------------------------------------------
-      - name: Push integration-test-coverage.zip
-        uses: cloudsmith-io/action@master
-        with:
-          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
-          command: push
-          format: raw
-          owner: simran-parwani-testorg
-          repo: dockers-testing
-          file: ./artifacts/integration-test-artifacts/integration-test-coverage.zip
-          name: integration-test-coverage.zip
-          version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
-          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }}
-          no-wait-for-sync: "true"
-
-      # -------------------------------------------------------
-      # Step 8: Push firmware.zip ⏱️
-      # -------------------------------------------------------
-      - name: Push firmware.zip
-        uses: cloudsmith-io/action@master
-        with:
-          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}
-          command: push
-          format: raw
-          owner: simran-parwani-testorg
-          repo: dockers-testing
-          file: ./artifacts/firmware-artifacts/firmware.zip
-          name: firmware.zip
-          version: test-component_1.0.0_build_develop_${{ github.event.inputs.build-no }}
-          tags: test-component,develop,1.0.0,${{ github.event.inputs.build-no }}
           no-wait-for-sync: "true"
