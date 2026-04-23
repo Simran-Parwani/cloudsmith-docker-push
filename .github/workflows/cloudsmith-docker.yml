@@ -1,26 +1,84 @@
-name: Push Docker Image to Cloudsmith
+name: Reproduce Cloudsmith Push Slowness
 
 on:
-  workflow_dispatch:
+  workflow_dispatch:        # Trigger manually from GitHub Actions UI
+    inputs:
+      build-no:
+        description: "Build number to use"
+        required: true
+        default: "1"
 
 jobs:
-  push-to-cloudsmith:
-    runs-on: ubuntu-latest
+  reproduce-cloudsmith-slowness:
+    runs-on: self-hosted     # ✅ Matches Suhas's environment
 
     steps:
-      - name: Checkout repo
-        uses: actions/checkout@v3
+      # -------------------------------------------------------
+      # Step 1: Checkout the repo
+      # -------------------------------------------------------
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Build Helm chart
-        shell: bash
-        working-directory: helm/alpacka
+      # -------------------------------------------------------
+      # Step 2: Create dummy artifacts to simulate ~50MB total
+      # (matches the real package size reported by Suhas)
+      # -------------------------------------------------------
+      - name: Create dummy artifacts
         run: |
-          helm dependency update
-          helm package . --version 0.0.1 --app-version 0.0.1
+          mkdir -p ./artifacts/unit-test-artifacts
+          mkdir -p ./artifacts/coverity-artifacts
+          mkdir -p ./artifacts/integration-test-artifacts
+          mkdir -p ./artifacts/firmware-artifacts
 
-      - name: Push to Cloudsmith
-        shell: bash
-        working-directory: helm/alpacka
+          # ~10MB - unit test coverage
+          dd if=/dev/urandom bs=1M count=10 of=/tmp/unit-test-dummy
+          zip ./artifacts/unit-test-artifacts/unit-test-coverage.zip /tmp/unit-test-dummy
+
+          # ~20MB - coverity (heaviest, matches Suhas's logs ~2min upload)
+          dd if=/dev/urandom bs=1M count=20 of=/tmp/coverity-dummy
+          zip ./artifacts/coverity-artifacts/coverity.zip /tmp/coverity-dummy
+
+          # ~10MB - integration test coverage
+          dd if=/dev/urandom bs=1M count=10 of=/tmp/integration-dummy
+          zip ./artifacts/integration-test-artifacts/integration-test-coverage.zip /tmp/integration-dummy
+
+          # ~10MB - firmware
+          dd if=/dev/urandom bs=1M count=10 of=/tmp/firmware-dummy
+          zip ./artifacts/firmware-artifacts/firmware.zip /tmp/firmware-dummy
+
+          # Small JSON file - build info
+          echo '{"component": "test-component", "build": ${{ github.event.inputs.build-no }}, "branch": "develop/1.0.0"}' \
+            > ./artifacts/build_info.json
+
+          echo "✅ Dummy artifacts created successfully"
+
+      # -------------------------------------------------------
+      # Step 3: Log artifact sizes (for reference)
+      # -------------------------------------------------------
+      - name: Show artifact sizes
         run: |
-          echo "${{ secrets.CLOUDSMITH_API_KEY }}" | helm registry login helm.oci.cloudsmith.io --username simran-parwani --password-stdin
-          helm push alpacka-0.0.1.tgz oci://helm.oci.cloudsmith.io/simran-parwani-testorg/helm
+          echo "📦 Artifact sizes:"
+          du -sh ./artifacts/**/*.zip ./artifacts/build_info.json
+
+      # -------------------------------------------------------
+      # Step 4: Push to Cloudsmith (replicates Suhas's action)
+      # ⏱️ This is where we measure the slowness
+      # -------------------------------------------------------
+      - name: Push artifacts to Cloudsmith
+        uses: adi-innersource/wbms-containers/.github/actions/cloudsmith/push-to-cloudsmith@cloudsmith-v1
+        with:
+          cloudsmith-repo-name: simran-parwani-testorg/dockers-testing        # 🔁 Replace with your Cloudsmith repo
+          component-name: dummy-component                   # 🔁 Replace with your component name
+          branch-name: develop/1.0.0
+          build-no: ${{ github.event.inputs.build-no }}
+          artifact-type: build
+          artifacts: |
+            ./artifacts/unit-test-artifacts/unit-test-coverage.zip
+            ./artifacts/coverity-artifacts/coverity.zip
+            ./artifacts/build_info.json
+            ./artifacts/integration-test-artifacts/integration-test-coverage.zip
+            ./artifacts/firmware-artifacts/firmware.zip
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}        # ✅ Add this secret in your repo settings
+          test-mode: false
+
+     
