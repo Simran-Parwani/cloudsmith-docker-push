@@ -10,7 +10,7 @@ on:
 
 jobs:
   reproduce-cloudsmith-slowness:
-    runs-on: self-hosted     # ✅ Matches Suhas's environment
+    runs-on: ubuntu-latest   # ✅ Changed from self-hosted (no runner configured)
 
     steps:
       # -------------------------------------------------------
@@ -39,6 +39,57 @@ jobs:
           zip ./artifacts/coverity-artifacts/coverity.zip /tmp/coverity-dummy
 
           # ~10MB - integration test coverage
+          dd if=/dev/urandom bs=1M count=10 of=/tmp/integration-dummy
+          zip ./artifacts/integration-test-artifacts/integration-test-coverage.zip /tmp/integration-dummy
+
+          # ~10MB - firmware
+          dd if=/dev/urandom bs=1M count=10 of=/tmp/firmware-dummy
+          zip ./artifacts/firmware-artifacts/firmware.zip /tmp/firmware-dummy
+
+          # Small JSON file - build info
+          echo '{"component": "test-component", "build": ${{ github.event.inputs.build-no }}, "branch": "develop/1.0.0"}' \
+            > ./artifacts/build_info.json
+
+          echo "✅ Dummy artifacts created successfully"
+
+      # -------------------------------------------------------
+      # Step 3: Log artifact sizes (for reference)
+      # -------------------------------------------------------
+      - name: Show artifact sizes
+        run: |
+          echo "📦 Artifact sizes:"
+          du -sh ./artifacts/**/*.zip ./artifacts/build_info.json
+
+      # -------------------------------------------------------
+      # Step 4: Push to Cloudsmith (replicates Suhas's action)
+      # ⏱️ This is where we measure the slowness
+      # -------------------------------------------------------
+      - name: Push artifacts to Cloudsmith
+        uses: adi-innersource/wbms-containers/.github/actions/cloudsmith/push-to-cloudsmith@cloudsmith-v1
+        with:
+          cloudsmith-repo-name: dummy-org/dummy-repo        # 🔁 Replace with your Cloudsmith repo
+          component-name: dummy-component                   # 🔁 Replace with your component name
+          branch-name: develop/1.0.0
+          build-no: ${{ github.event.inputs.build-no }}
+          artifact-type: build
+          artifacts: |
+            ./artifacts/unit-test-artifacts/unit-test-coverage.zip
+            ./artifacts/coverity-artifacts/coverity.zip
+            ./artifacts/build_info.json
+            ./artifacts/integration-test-artifacts/integration-test-coverage.zip
+            ./artifacts/firmware-artifacts/firmware.zip
+          api-key: ${{ secrets.CLOUDSMITH_API_KEY }}        # ✅ Add this secret in your repo settings
+          test-mode: false
+
+      # -------------------------------------------------------
+      # Step 5: Cleanup dummy files from runner after the run
+      # -------------------------------------------------------
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf ./artifacts
+          rm -f /tmp/unit-test-dummy /tmp/coverity-dummy /tmp/integration-dummy /tmp/firmware-dummy
+          echo "🧹 Cleanup done" coverage
           dd if=/dev/urandom bs=1M count=10 of=/tmp/integration-dummy
           zip ./artifacts/integration-test-artifacts/integration-test-coverage.zip /tmp/integration-dummy
 
